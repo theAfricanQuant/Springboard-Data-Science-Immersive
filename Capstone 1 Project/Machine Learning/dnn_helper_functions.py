@@ -100,13 +100,15 @@ def initialize_parameters_deep(layer_dims):
     L = len(layer_dims)            # number of layers in the network
 
     for l in range(1, L):
-        parameters['W' + str(l)] = np.random.randn(layer_dims[l], layer_dims[l-1]) / np.sqrt(layer_dims[l-1]) #*0.01
-        parameters['b' + str(l)] = np.zeros((layer_dims[l], 1))
-        
-        assert(parameters['W' + str(l)].shape == (layer_dims[l], layer_dims[l-1]))
-        assert(parameters['b' + str(l)].shape == (layer_dims[l], 1))
+        parameters[f'W{str(l)}'] = np.random.randn(
+            layer_dims[l], layer_dims[l - 1]
+        ) / np.sqrt(layer_dims[l - 1])
+        parameters[f'b{str(l)}'] = np.zeros((layer_dims[l], 1))
 
-        
+        assert parameters[f'W{str(l)}'].shape == (layer_dims[l], layer_dims[l-1])
+        assert parameters[f'b{str(l)}'].shape == (layer_dims[l], 1)
+
+
     return parameters
 
 def linear_forward(A, W, b):
@@ -180,21 +182,31 @@ def L_model_forward(X, parameters, layer_dims):
     caches = []
     A = X
     L = len(parameters) // 2                  # number of layers in the neural network
-    
+
     # Implement [LINEAR -> RELU]*(L-1). Add "cache" to the "caches" list.
     for l in range(1, L):
-        A_prev = A 
-        A, cache = linear_activation_forward(A_prev, parameters['W' + str(l)], parameters['b' + str(l)], activation = "relu")
-        
+        A_prev = A
+        A, cache = linear_activation_forward(
+            A_prev,
+            parameters[f'W{str(l)}'],
+            parameters[f'b{str(l)}'],
+            activation="relu",
+        )
+
         caches.append(cache)
-    
+
     # Implement LINEAR -> SIGMOID. Add "cache" to the "caches" list.
-    AL, cache = linear_activation_forward(A, parameters['W' + str(L)], parameters['b' + str(L)], activation = "sigmoid")
-    
+    AL, cache = linear_activation_forward(
+        A,
+        parameters[f'W{str(L)}'],
+        parameters[f'b{str(L)}'],
+        activation="sigmoid",
+    )
+
     caches.append(cache)
-    
+
     assert(AL.shape == (layer_dims[-1],X.shape[1]))
-    
+
     return AL, caches
 
 
@@ -302,23 +314,34 @@ def L_model_backward(AL, Y, lambd, caches):
     grads = {}
     L = len(caches) # the number of layers
     m = AL.shape[1]
-    
+
     Y = Y.reshape(AL.shape) # after this line, Y is the same shape as AL
-    
+
     # Initializing the backpropagation
     dAL = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
-    
+
     # Lth layer (SIGMOID -> LINEAR) gradients. Inputs: "AL, Y, caches". Outputs: "grads["dAL"], grads["dWL"], grads["dbL"]
     current_cache = caches[L-1]
-    grads["dA" + str(L-1)], grads["dW" + str(L)], grads["db" + str(L)] = linear_activation_backward(dAL, current_cache, activation = "sigmoid", lambd = lambd)
-    
+    (
+        grads[f"dA{str(L - 1)}"],
+        grads[f"dW{L}"],
+        grads[f"db{L}"],
+    ) = linear_activation_backward(
+        dAL, current_cache, activation="sigmoid", lambd=lambd
+    )
+
     for l in reversed(range(L-1)):
         # lth layer: (RELU -> LINEAR) gradients.
         current_cache = caches[l]
-        dA_prev_temp, dW_temp, db_temp = linear_activation_backward(grads["dA" + str(l + 1)], current_cache, activation = "relu", lambd = lambd)
-        grads["dA" + str(l)] = dA_prev_temp
-        grads["dW" + str(l + 1)] = dW_temp
-        grads["db" + str(l + 1)] = db_temp
+        dA_prev_temp, dW_temp, db_temp = linear_activation_backward(
+            grads[f"dA{str(l + 1)}"],
+            current_cache,
+            activation="relu",
+            lambd=lambd,
+        )
+        grads[f"dA{str(l)}"] = dA_prev_temp
+        grads[f"dW{str(l + 1)}"] = dW_temp
+        grads[f"db{str(l + 1)}"] = db_temp
 
     return grads
 
@@ -340,28 +363,28 @@ def update_parameters(parameters, grads, learning_rate):
 
     # Update rule for each parameter. Use a for loop.
     for l in range(L):
-        parameters["W" + str(l+1)] = parameters["W" + str(l+1)] - learning_rate * grads["dW" + str(l+1)]
-        parameters["b" + str(l+1)] = parameters["b" + str(l+1)] - learning_rate * grads["db" + str(l+1)]
-        
+        parameters[f"W{str(l + 1)}"] = (
+            parameters[f"W{str(l + 1)}"]
+            - learning_rate * grads[f"dW{str(l + 1)}"]
+        )
+        parameters[f"b{str(l + 1)}"] = (
+            parameters[f"b{str(l + 1)}"]
+            - learning_rate * grads[f"db{str(l + 1)}"]
+        )
+
     return parameters
 
 
 def accuracy(AL, Y, train = False):
-    maxis =[]
-    ymaxis = []
-    for a in AL.T:
-        maxis.append(a.argmax())
-    
-    for a in Y.T:
-        ymaxis.append(a.argmax())
-        
+    maxis = [a.argmax() for a in AL.T]
+    ymaxis = [a.argmax() for a in Y.T]
     assert(len(maxis) == len(ymaxis))
-    
+
     data = {'pred':maxis, 'true':ymaxis}
     f = pd.DataFrame(data, index = range(len(maxis)))
     f['score'] = np.abs(f.pred - f.true)
     score = len(f[f.score == 0]) / len(f)
-    
+
     if train is True:
         fig = plt.figure(figsize = (15,8))
         conf_matrix = confusion_matrix(Y.T.argmax(axis = 1), AL.T.argmax(axis = 1))
